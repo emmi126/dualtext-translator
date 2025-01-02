@@ -12,7 +12,7 @@ interface DualTextTranslatorSettings {
 const DEFAULT_SETTINGS: DualTextTranslatorSettings = {
     sourceLanguage: 'en',
     targetLanguage: 'fr',
-    apiKey: 'auth-placeholder-deepl-zx9y8w7v6u5t4s3r2q1p0n'
+    apiKey: ''
 };
 
 // Main plugin class
@@ -53,7 +53,7 @@ export default class DualTextTranslatorPlugin extends Plugin {
     async translateText(text: string): Promise<string | null> {
         const { sourceLanguage, targetLanguage, apiKey } = this.settings;
 
-        if (!apiKey || apiKey === 'auth-placeholder-deepl-zx9y8w7v6u5t4s3r2q1p0n') {
+        if (!apiKey) {
             new Notice('API key not configured or is a placeholder!');
             return null;
         }
@@ -167,7 +167,7 @@ class DualTextTranslatorSettingTab extends PluginSettingTab {
             .addText((text) =>
                 text
                     .setPlaceholder('Enter your API key')
-                    .setValue(this.plugin.settings.apiKey)
+                    .setValue('')
                     .onChange(async (value) => {
                         this.plugin.settings.apiKey = value;
                         await this.plugin.saveSettings();
@@ -175,3 +175,4 @@ class DualTextTranslatorSettingTab extends PluginSettingTab {
             );
     }
 }
+
