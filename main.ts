@@ -58,7 +58,7 @@ export default class DualTextTranslatorPlugin extends Plugin {
             return null;
         }
 
-        const url = `https://api.deepl.com/v2/translate?auth_key=${apiKey}&text=${encodeURIComponent(text)}&source_lang=${sourceLanguage}&target_lang=${targetLanguage}`; // Replace with real endpoint
+        const url = `https://api.deepl.com/v2/translate?auth_key=${apiKey}&text=${encodeURIComponent(text)}&source_lang=${sourceLanguage}&target_lang=${targetLanguage}`;
 
         try {
             const response = await fetch(url);
