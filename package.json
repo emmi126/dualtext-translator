@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
+	"name": "dualtext-translator",
 	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"description": "Plugin that enhances multilingual notetaking and language learning.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
