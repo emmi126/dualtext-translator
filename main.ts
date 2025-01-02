@@ -1,134 +1,177 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+// Import required modules from the Obsidian API
+import { App, Plugin, PluginSettingTab, Setting, Modal } from 'obsidian';
 
-// Remember to rename these classes and interfaces!
-
-interface MyPluginSettings {
-	mySetting: string;
+// Define plugin settings interface
+interface DualTextTranslatorSettings {
+    sourceLanguage: string;
+    targetLanguage: string;
+    apiKey: string;
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+// Default settings
+const DEFAULT_SETTINGS: DualTextTranslatorSettings = {
+    sourceLanguage: 'en',
+    targetLanguage: 'fr',
+    apiKey: 'auth-placeholder-deepl-zx9y8w7v6u5t4s3r2q1p0n'
+};
+
+// Main plugin class
+export default class DualTextTranslatorPlugin extends Plugin {
+    settings: DualTextTranslatorSettings;
+
+    async onload() {
+        console.log("Loading DualText Translator Plugin");
+
+        // Load settings
+        await this.loadSettings();
+
+        // Add command for translation
+        this.addCommand({
+            id: 'translate-selection',
+            name: 'Translate Selected Text',
+            editorCallback: (editor) => this.translateSelection(editor),
+        });
+
+        // Add settings tab
+        this.addSettingTab(new DualTextTranslatorSettingTab(this.app, this));
+    }
+
+    async translateSelection(editor: Editor) {
+        const selectedText = editor.getSelection();
+        if (!selectedText) {
+            new Notice('No text selected!');
+            return;
+        }
+
+        // Call translation API
+        const translatedText = await this.translateText(selectedText);
+        if (translatedText) {
+            new TranslationModal(this.app, selectedText, translatedText).open();
+        }
+    }
+
+    async translateText(text: string): Promise<string | null> {
+        const { sourceLanguage, targetLanguage, apiKey } = this.settings;
+
+        if (!apiKey || apiKey === 'auth-placeholder-deepl-zx9y8w7v6u5t4s3r2q1p0n') {
+            new Notice('API key not configured or is a placeholder!');
+            return null;
+        }
+
+        const url = `https://api.deepl.com/v2/translate?auth_key=${apiKey}&text=${encodeURIComponent(text)}&source_lang=${sourceLanguage}&target_lang=${targetLanguage}`; // Replace with real endpoint
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`API Error: ${response.statusText}`);
+            }
+            const data = await response.json();
+            return data.translations?.[0]?.text || 'Translation failed';
+        } catch (error) {
+            console.error(error);
+            new Notice('Failed to fetch translation.');
+            return null;
+        }
+    }
+
+    onunload() {
+        console.log("Unloading DualText Translator Plugin");
+    }
+
+    async loadSettings() {
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    }
+
+    async saveSettings() {
+        await this.saveData(this.settings);
+    }
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+// Modal to display original and translated text
+class TranslationModal extends Modal {
+    originalText: string;
+    translatedText: string;
 
-	async onload() {
-		await this.loadSettings();
+    constructor(app: App, originalText: string, translatedText: string) {
+        super(app);
+        this.originalText = originalText;
+        this.translatedText = translatedText;
+    }
 
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.empty();
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
+        contentEl.createEl('h2', { text: 'Translation' });
 
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
+        contentEl.createEl('h3', { text: 'Original' });
+        contentEl.createEl('p', { text: this.originalText });
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			}
-		});
+        contentEl.createEl('h3', { text: 'Translated' });
+        contentEl.createEl('p', { text: this.translatedText });
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+        const closeButton = contentEl.createEl('button', { text: 'Close' });
+        closeButton.addEventListener('click', () => this.close());
+    }
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-	}
-
-	onunload() {
-
-	}
-
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-	}
-
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
+    onClose() {
+        const { contentEl } = this;
+        contentEl.empty();
+    }
 }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
+// Settings tab for the plugin
+class DualTextTranslatorSettingTab extends PluginSettingTab {
+    plugin: DualTextTranslatorPlugin;
 
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
+    constructor(app: App, plugin: DualTextTranslatorPlugin) {
+        super(app, plugin);
+        this.plugin = plugin;
+    }
 
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
+    display(): void {
+        const { containerEl } = this;
+        containerEl.empty();
 
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+        containerEl.createEl('h2', { text: 'DualText Translator Plugin Settings' });
 
-	constructor(app: App, plugin: MyPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
+        new Setting(containerEl)
+            .setName('Source Language')
+            .setDesc('The language of the original text.')
+            .addText((text) =>
+                text
+                    .setPlaceholder('e.g., en')
+                    .setValue(this.plugin.settings.sourceLanguage)
+                    .onChange(async (value) => {
+                        this.plugin.settings.sourceLanguage = value;
+                        await this.plugin.saveSettings();
+                    })
+            );
 
-	display(): void {
-		const {containerEl} = this;
+        new Setting(containerEl)
+            .setName('Target Language')
+            .setDesc('The language for translation.')
+            .addText((text) =>
+                text
+                    .setPlaceholder('e.g., fr')
+                    .setValue(this.plugin.settings.targetLanguage)
+                    .onChange(async (value) => {
+                        this.plugin.settings.targetLanguage = value;
+                        await this.plugin.saveSettings();
+                    })
+            );
 
-		containerEl.empty();
-
-		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
-	}
+        new Setting(containerEl)
+            .setName('API Key')
+            .setDesc('API key for the translation service.')
+            .addText((text) =>
+                text
+                    .setPlaceholder('Enter your API key')
+                    .setValue(this.plugin.settings.apiKey)
+                    .onChange(async (value) => {
+                        this.plugin.settings.apiKey = value;
+                        await this.plugin.saveSettings();
+                    })
+            );
+    }
 }
